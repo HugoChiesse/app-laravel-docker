@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+    app:
+      build: 
+        args:
+          user: hugo
+          uid: 1000
+        context: ./
+        dockerfile: Dockerfile
+      image: hugo_chiesse/laravel_app
+      working_dir: /var/www/
+      volumes:
+        - ./:/var/www
+      restart: unless-stopped
+      networks:
+        - laravel
+
+    nginx:
+      image: nginx:alpine
+      restart: unless-stopped
+      ports:
+        - 83:80
+      volumes: 
+        - ./:/var/www
+        - ./docker/nginx/:/etc/nginx/conf.d/
+      networks:
+        - laravel
+
+    redis:
+      image: redis:latest
+      networks:
+        - laravel
+
+    mysql:
+      image: mysql:5.7.39
+      restart: unless-stopped
+      ports:
+        - 3388:3306
+      volumes:
+        - ./.docker/mysql:/var/lib/mysql
+      environment:
+        MYSQL_DATABASE: ${DB_DATABASE}
+        MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+        MYSQL_USER: ${DB_USERNAME}
+        MYSQL_PASSWORD: ${DB_USERNAME}
+      networks:
+        - laravel
+
+networks: 
+    laravel:
+        driver: bridge
