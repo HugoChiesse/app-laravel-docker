@@ -1,52 +1,75 @@
-version: '3.8'
+version: "3.8"
 
 services:
-    app:
-      build: 
-        args:
-          user: hugo
-          uid: 1000
-        context: ./
-        dockerfile: Dockerfile
-      image: hugo_chiesse/laravel_app
-      working_dir: /var/www/
-      volumes:
-        - ./:/var/www
-      restart: unless-stopped
-      networks:
-        - laravel
+  # custom image
+  app:
+    build:
+      args:
+        user: hugo
+        uid: 1000
+      context: ./
+      dockerfile: Dockerfile
+    image: hugo_chiesse/laravel_app
+    working_dir: /var/www/
+    volumes:
+      - ./:/var/www/
+    restart: always
+    depends_on:
+      - redis
+      - queue
+    networks:
+      - docker-laravel
+  
+  #nginx
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - 83:80
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/:/etc/nginx/conf.d/
+    networks:
+      - docker-laravel
 
-    nginx:
-      image: nginx:alpine
-      restart: unless-stopped
-      ports:
-        - 83:80
-      volumes: 
-        - ./:/var/www
-        - ./docker/nginx/:/etc/nginx/conf.d/
-      networks:
-        - laravel
+  # redis
+  redis:
+    image: redis:latest
+    networks:
+      - docker-laravel
 
-    redis:
-      image: redis:latest
-      networks:
-        - laravel
+  #queue
+  queue:
+    build:
+      args:
+        user: hugo
+        uid: 1000
+      context: ./
+      dockerfile: Dockerfile
+    restart: always
+    command: "php artisan queue:work"
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - redis
+    networks:
+      - docker-laravel
 
-    mysql:
-      image: mysql:5.7.39
-      restart: unless-stopped
-      ports:
-        - 3388:3306
-      volumes:
-        - ./.docker/mysql:/var/lib/mysql
-      environment:
-        MYSQL_DATABASE: ${DB_DATABASE}
-        MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-        MYSQL_USER: ${DB_USERNAME}
-        MYSQL_PASSWORD: ${DB_USERNAME}
-      networks:
-        - laravel
+  mysql:
+    image: mysql:5.7.39
+    restart: always
+    ports:
+      - 3388:3306
+    volumes:
+      - ./.docker/mysql:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - docker-laravel 
 
-networks: 
-    laravel:
-        driver: bridge
+networks:
+  docker-laravel:
+    driver: bridge
